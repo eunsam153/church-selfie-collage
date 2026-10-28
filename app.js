@@ -90,13 +90,7 @@ function selectSegment(i){
   renderGrid();drawArtwork($('artworkCanvas'));
   $('captureSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function openSettings(){ 
-  $('supabaseUrl').value = settings.url || 'https://luflknyhvjrbwcuvtnxi.supabase.co/rest/v1/';
-  $('supabaseKey').value = settings.key || 'sb_publishable_Rx8VFmcjgOC3hGWhRAsKjQ_XTK3sZss';
-  $('projectCode').value = settings.project || 'church-42';
-  $('settingsMessage').textContent = supabaseClient ? '온라인 저장 연결됨' : 'URL과 공개 키를 입력하면 기기 간 사진이 동기화됩니다.';
-  $('settingsDialog').showModal();
-}
+function openSettings(){ $('supabaseUrl').value=settings.url||'';$('supabaseKey').value=settings.key||'';$('projectCode').value=settings.project||'church-42';$('settingsMessage').textContent=supabaseClient?'온라인 저장 연결됨': 'URL과 공개 키를 입력하면 기기 간 사진이 동기화됩니다.';$('settingsDialog').showModal() }
 
 async function connectSupabase(){
   const url=$('supabaseUrl').value.trim().replace(/\/$/,'');const key=$('supabaseKey').value.trim();const project=$('projectCode').value.trim()||'church-42';
@@ -163,80 +157,75 @@ async function savePhoto(){
 }
 async function loadLocalPhotos(){const entries=await localGetPhotos();for(const [key,value] of entries){const i=Number(String(key).replace(LOCAL_PREFIX,''))-1;if(Number.isInteger(i)&&i>=0&&i<TOTAL&&value)photos.set(i,value)}renderGrid();drawArtwork($('artworkCanvas'))}
 async function startCamera(){
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showToast('이 브라우저에서는 카메라를 지원하지 않습니다. Safari 앱으로 접속해 주세요.');
-    return;
-  }
+  if(!navigator.mediaDevices?.getUserMedia){showToast('이 브라우저에서는 카메라를 사용할 수 없어요. HTTPS로 접속해 주세요.');return}
   stopCamera();
-  try {
-    // 아이폰 호환성을 위해 제약 조건을 유연하게 설정
-    const constraints = {
-      video: { 
-        facingMode: { ideal: facingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    };
-    
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-    const video = $('camera');
-    video.srcObject = stream;
-    
-    // 아이폰 Safari 필수 재생 속성 부여
-    video.setAttribute('playsinline', 'true');
-    video.setAttribute('autoplay', 'true');
-    video.muted = true;
-    await video.play().catch(() => {});
-
-    video.classList.remove('hidden');
-    $('cameraPlaceholder').classList.add('hidden');
-    $('takePhotoBtn').disabled = false;
-    $('switchCameraBtn').disabled = false;
-    $('cameraMessage').textContent = '빨간 선의 각도와 길이에 맞춰 포즈를 잡아 주세요.';
-  } catch(e) {
-    console.error(e);
-    showToast('카메라를 시작할 수 없어요. 권한을 확인해 주세요.');
-    $('cameraMessage').textContent = '오류: ' + (e.message || '카메라 접근 거부됨');
-  }
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facingMode},width:{ideal:1280},height:{ideal:1600}},audio:false});
+    $('camera').srcObject=stream;$('camera').classList.remove('hidden');$('cameraPlaceholder').classList.add('hidden');
+    $('takePhotoBtn').disabled=false;$('switchCameraBtn').disabled=false;$('cameraMessage').textContent='빨간 선의 각도와 길이에 맞춰 포즈를 잡아 주세요.';
+  }catch(e){showToast('카메라를 시작하지 못했어요. 권한과 HTTPS 연결을 확인해 주세요.');$('cameraMessage').textContent=e.message}
 }
 function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
 function takePhoto(){
   const video=$('camera');if(!stream||!video.videoWidth)return;
-  const c=$('captureCanvas');c.width=video.videoWidth;c.height=video.videoHeight;const ctx=c.getContext('2d');
-  ctx.translate(c.width,0);ctx.scale(-1,1);ctx.drawImage(video,0,0,c.width,c.height);
-  pendingPhoto=c.toDataURL('image/jpeg',.88);
+  const c=$('captureCanvas');
+  // Capture a centered square crop so the source photo itself is square.
+  const side=Math.min(video.videoWidth,video.videoHeight);
+  const sx=(video.videoWidth-side)/2;
+  const sy=Math.max(0,Math.min(video.videoHeight-side,(video.videoHeight-side)*0.32));
+  c.width=1024;c.height=1024;const ctx=c.getContext('2d');
+  ctx.save();ctx.translate(c.width,0);ctx.scale(-1,1);
+  ctx.drawImage(video,sx,sy,side,side,0,0,c.width,c.height);ctx.restore();
+  pendingPhoto=c.toDataURL('image/jpeg',.9);
+  video.classList.add('hidden');c.classList.remove('hidden');
   $('cameraPlaceholder').classList.add('hidden');$('savePhotoBtn').disabled=false;$('retakeBtn').classList.remove('hidden');
-  $('cameraMessage').textContent='촬영한 사진을 확인하고 저장하세요. 저장 전에는 작품에 반영되지 않아요.';
-  showToast('사진을 촬영했어요. 마음에 들면 저장해 주세요.');
+  $('cameraMessage').textContent='정방형 사진을 확인하고 저장하세요. 마음에 들지 않으면 다시 촬영할 수 있어요.';
+  showToast('정방형 셀카를 촬영했어요.');
 }
-function drawLine(ctx,seg,color='#ff3038',width=13){
-  const scaleX=1100/1000,scaleY=1375/1000;
-  ctx.beginPath();ctx.moveTo(seg.a[0]*scaleX,seg.a[1]*scaleY);ctx.lineTo(seg.b[0]*scaleX,seg.b[1]*scaleY);
+// The photo's position is defined by its cell center. The image itself is NEVER rotated.
+// X/Y position scales map the starter guide coordinates to the portrait poster; tile size
+// stays equal in both dimensions so each selfie remains a true square.
+const ART_MAP = { sx: 0.965, sy: 1.075, ox: 68, oy: 32 };
+const PHOTO_TILE_SIZE = 70;
+function mapPoint(p){ return {x:p[0]*ART_MAP.sx+ART_MAP.ox, y:p[1]*ART_MAP.sy+ART_MAP.oy}; }
+function drawGuideSegment(ctx,seg,color='#ff3038',width=12){
+  const a=mapPoint(seg.a), b=mapPoint(seg.b);
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
   ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='butt';ctx.stroke();
 }
 function loadImage(src){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}
 async function drawArtwork(canvas){
-  if(!canvas)return;const ctx=canvas.getContext('2d');ctx.fillStyle='#050505';ctx.fillRect(0,0,canvas.width,canvas.height);
-  // Position the 1000x1000 shape inside the 1100x1375 poster, leaving space for verse/footer.
-  const offsetX=50,offsetY=80,scale=1;
-  ctx.save();ctx.translate(offsetX,offsetY);
-  // The shape uses the reference image's red stroke as the collage path.
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#050505';ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Each numbered slot is a square, upright photo cell. Only its LOCATION follows the
+  // church/heart path. Do not rotate the selfie to follow the red guide segment.
+  const size=PHOTO_TILE_SIZE;
   for(let i=0;i<TOTAL;i++){
+    const seg=segments[i];
+    const a=mapPoint(seg.a), b=mapPoint(seg.b);
+    const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
     const photo=photos.get(i);
     if(photo){
       try{
-        const im=await loadImage(photo);const seg=segments[i];const x=(seg.a[0]+seg.b[0])/2,y=(seg.a[1]+seg.b[1])/2;
-        const w= Math.max(45,Math.hypot(seg.b[0]-seg.a[0],seg.b[1]-seg.a[1])+38),h=100;
-        ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(seg.b[1]-seg.a[1],seg.b[0]-seg.a[0]));
-        ctx.beginPath();ctx.rect(-w/2,-h/2,w,h);ctx.clip();
-        const ratio=Math.max(w/im.width,h/im.height);ctx.drawImage(im,-im.width*ratio/2,-im.height*ratio/2,im.width*ratio,im.height*ratio);
+        const im=await loadImage(photo);
+        // Square center-crop, no rotation: one selfie occupies one fixed square cell.
+        const crop=Math.min(im.width,im.height);
+        const sx=(im.width-crop)/2, sy=(im.height-crop)/2;
+        ctx.save();ctx.beginPath();ctx.rect(cx-size/2,cy-size/2,size,size);ctx.clip();
+        ctx.drawImage(im,sx,sy,crop,crop,cx-size/2,cy-size/2,size,size);
         ctx.restore();
-      }catch(e){drawLine(ctx,segments[i])}
-    }else drawLine(ctx,segments[i]);
+        // Thin black dividers keep the 42 photo cells visually distinct.
+        ctx.strokeStyle='#080808';ctx.lineWidth=2;ctx.strokeRect(cx-size/2,cy-size/2,size,size);
+      }catch(e){drawGuideSegment(ctx,seg)}
+    }else{
+      // Unfilled slots show the red pose guide as a progress placeholder only.
+      drawGuideSegment(ctx,seg);
+    }
   }
-  ctx.restore();
-  // caption
+
+  // Keep the caption area clear of the 42 photo cells.
   ctx.fillStyle='#77767d';ctx.textAlign='center';ctx.font='bold 22px sans-serif';
   ctx.fillText("All of you together are Christ's body, and each of you is a part of it.",canvas.width/2,1185);
   ctx.font='bold 21px sans-serif';ctx.fillText('너희는 그리스도의 몸이요 지체의 각 부분이라 (고전 12:27)',canvas.width/2,1230);
@@ -255,7 +244,7 @@ $('clearSettingsBtn').addEventListener('click',()=>{settings={};saveSettingsLoca
 $('startCameraBtn').addEventListener('click',startCamera);
 $('switchCameraBtn').addEventListener('click',()=>{facingMode=facingMode==='user'?'environment':'user';startCamera()});
 $('takePhotoBtn').addEventListener('click',takePhoto);
-$('retakeBtn').addEventListener('click',()=>{pendingPhoto=null;$('savePhotoBtn').disabled=true;$('retakeBtn').classList.add('hidden');$('cameraMessage').textContent='다시 포즈를 잡고 촬영해 주세요.'});
+$('retakeBtn').addEventListener('click',()=>{pendingPhoto=null;$('savePhotoBtn').disabled=true;$('retakeBtn').classList.add('hidden');$('captureCanvas').classList.add('hidden');if(stream)$('camera').classList.remove('hidden');$('cameraMessage').textContent='다시 포즈를 잡고 촬영해 주세요.'});
 $('savePhotoBtn').addEventListener('click',savePhoto);
 $('downloadBtn').addEventListener('click',()=>downloadCanvas($('artworkCanvas'),'church-42-collage.png'));
 $('previewBtn').addEventListener('click',openPreview);
