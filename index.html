@@ -49,22 +49,18 @@
         <span id="captureStatus" class="status-pill">촬영 전</span>
       </div>
       <div class="guide-stage">
-        <div class="guide-label">이 선을 손과 팔로 표현해 주세요</div>
-        <svg id="largeGuide" viewBox="0 0 320 190" role="img" aria-label="현재 촬영할 선분">
-          <line x1="42" y1="95" x2="278" y2="95" class="guide-line"/>
-          <circle cx="42" cy="95" r="5" class="guide-dot"/>
-          <circle cx="278" cy="95" r="5" class="guide-dot"/>
-        </svg>
-        <p id="guideTip" class="guide-tip">선의 방향과 길이를 참고해 포즈를 잡아 주세요.</p>
+        <div class="guide-label">이 칸의 빨간색 가이드를 손과 팔로 표현해 주세요</div>
+        <canvas id="largeGuide" width="340" height="340" role="img" aria-label="선택한 정사각형의 원본 가이드"></canvas>
+        <p id="guideTip" class="guide-tip">빨간색 선이 있는 칸은 손과 팔로 선의 방향을 표현해 주세요.</p>
       </div>
       <div class="camera-wrap">
         <video id="camera" autoplay playsinline muted></video>
         <canvas id="captureCanvas" class="hidden"></canvas>
+        <canvas id="cameraGuideCanvas" aria-hidden="true"></canvas>
         <div id="cameraPlaceholder" class="camera-placeholder">
           <div class="camera-icon">◎</div>
           <p>카메라를 시작하면 여기에<br>셀카 화면이 나타나요.</p>
         </div>
-        <div class="camera-overlay-line" id="cameraOverlayLine"></div>
         <div class="camera-actions">
           <button id="startCameraBtn" class="secondary">카메라 시작</button>
           <button id="switchCameraBtn" class="secondary" disabled>전·후면 전환</button>
