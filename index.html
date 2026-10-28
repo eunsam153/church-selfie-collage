@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101010">
+  <title>42 · 함께 만드는 교회</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">42</div>
+    <div>
+      <div class="eyebrow">COLLECTIVE SELFIE ART</div>
+      <h1>함께 만드는 교회</h1>
+    </div>
+    <button id="settingsBtn" class="icon-btn" aria-label="설정">⚙</button>
+  </header>
+
+  <main>
+    <section id="setupNotice" class="notice hidden">
+      <strong>온라인 저장 설정이 필요해요.</strong>
+      <p>설정에서 Supabase 프로젝트 URL과 anon key를 입력하면 여러 사람이 촬영한 사진을 함께 모을 수 있어요. 설정 전에는 이 기기에만 임시 저장됩니다.</p>
+      <button class="primary" id="openSettingsNotice">온라인 저장 연결하기</button>
+    </section>
+
+    <section class="intro">
+      <p class="kicker">ONE SHAPE, 42 PEOPLE</p>
+      <h2>한 사람의 선이 모여<br><span>하나의 교회</span>가 됩니다.</h2>
+      <p class="muted">번호를 선택하고, 화면의 선을 손과 팔로 표현해 셀카를 찍어 주세요.</p>
+    </section>
+
+    <section class="progress-card">
+      <div class="progress-head"><span>전체 촬영 현황</span><strong id="progressText">0 / 42</strong></div>
+      <div class="progress-track"><div id="progressBar"></div></div>
+      <div class="progress-foot"><span id="progressHint">첫 번째 선부터 시작해 보세요.</span><button id="previewBtn" class="text-btn">완성 미리보기 ↗</button></div>
+    </section>
+
+    <section class="section-head">
+      <div><p class="kicker">PICK A SEGMENT</p><h3>촬영할 선 선택</h3></div>
+      <span class="small-muted">총 42개</span>
+    </section>
+    <div id="segmentGrid" class="segment-grid" aria-label="촬영 번호 선택"></div>
+
+    <section class="capture-card" id="captureSection">
+      <div class="section-head compact">
+        <div><p class="kicker">YOUR TURN</p><h3><span id="currentNumber">01</span>번 선 촬영</h3></div>
+        <span id="captureStatus" class="status-pill">촬영 전</span>
+      </div>
+      <div class="guide-stage">
+        <div class="guide-label">이 선을 손과 팔로 표현해 주세요</div>
+        <svg id="largeGuide" viewBox="0 0 320 190" role="img" aria-label="현재 촬영할 선분">
+          <line x1="42" y1="95" x2="278" y2="95" class="guide-line"/>
+          <circle cx="42" cy="95" r="5" class="guide-dot"/>
+          <circle cx="278" cy="95" r="5" class="guide-dot"/>
+        </svg>
+        <p id="guideTip" class="guide-tip">선의 방향과 길이를 참고해 포즈를 잡아 주세요.</p>
+      </div>
+      <div class="camera-wrap">
+        <video id="camera" autoplay playsinline muted></video>
+        <canvas id="captureCanvas" class="hidden"></canvas>
+        <div id="cameraPlaceholder" class="camera-placeholder">
+          <div class="camera-icon">◎</div>
+          <p>카메라를 시작하면 여기에<br>셀카 화면이 나타나요.</p>
+        </div>
+        <div class="camera-overlay-line" id="cameraOverlayLine"></div>
+        <div class="camera-actions">
+          <button id="startCameraBtn" class="secondary">카메라 시작</button>
+          <button id="switchCameraBtn" class="secondary" disabled>전·후면 전환</button>
+        </div>
+      </div>
+      <div class="capture-controls">
+        <button id="takePhotoBtn" class="shutter" disabled><span></span><b>셀카 촬영</b></button>
+        <button id="retakeBtn" class="secondary hidden">다시 촬영</button>
+        <button id="savePhotoBtn" class="primary" disabled>이 번호에 저장</button>
+      </div>
+      <p id="cameraMessage" class="small-muted camera-message">카메라 권한을 허용해 주세요. 촬영한 사진은 저장 전 미리 볼 수 있어요.</p>
+    </section>
+
+    <section class="section-head">
+      <div><p class="kicker">THE FINAL ARTWORK</p><h3>완성 작품</h3></div>
+      <button id="downloadBtn" class="text-btn">이미지 저장 ↓</button>
+    </section>
+    <div class="artwork-card">
+      <canvas id="artworkCanvas" width="1100" height="1375"></canvas>
+      <div class="artwork-bottom"><span id="artworkCount">0 / 42 photos</span><span>42 · ONE BODY</span></div>
+    </div>
+    <p class="footer-note">사진은 번호별로 저장됩니다. 여러 사람이 같은 링크로 접속하면 같은 작품을 함께 완성할 수 있어요.</p>
+  </main>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" id="settingsForm">
+      <div class="dialog-head"><div><p class="kicker">PROJECT SETTINGS</p><h2>온라인 저장 설정</h2></div><button class="icon-btn" value="cancel" aria-label="닫기">×</button></div>
+      <p class="muted">Supabase 프로젝트의 URL과 anon/public key를 입력하세요. 이 정보는 웹 앱에서 사용하도록 설계된 공개 키이며, 데이터 접근은 Supabase 정책으로 제한해야 합니다.</p>
+      <label for="supabaseUrl">Project URL</label>
+      <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" autocomplete="url">
+      <label for="supabaseKey">Anon / Publishable key</label>
+      <textarea id="supabaseKey" rows="3" placeholder="sb_publishable_... 또는 기존 anon key"></textarea>
+      <label for="projectCode">작품 코드</label>
+      <input id="projectCode" type="text" value="church-42" maxlength="40">
+      <div class="dialog-actions"><button id="clearSettingsBtn" type="button" class="secondary">연결 해제</button><button id="saveSettingsBtn" type="button" class="primary">연결 및 저장</button></div>
+      <p id="settingsMessage" class="small-muted"></p>
+    </form>
+  </dialog>
+
+  <dialog id="previewDialog">
+    <div class="dialog-head"><div><p class="kicker">PREVIEW</p><h2>작품 미리보기</h2></div><button id="closePreviewBtn" class="icon-btn">×</button></div>
+    <canvas id="previewCanvas" width="1100" height="1375"></canvas>
+    <p id="previewCount" class="small-muted"></p>
+    <button id="previewDownloadBtn" class="primary full">PNG 다운로드</button>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
