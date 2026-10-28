@@ -90,7 +90,13 @@ function selectSegment(i){
   renderGrid();drawArtwork($('artworkCanvas'));
   $('captureSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function openSettings(){ $('supabaseUrl').value=https://luflknyhvjrbwcuvtnxi.supabase.co/rest/v1/||'';$('supabaseKey').value=sb_publishable_Rx8VFmcjgOC3hGWhRAsKjQ_XTK3sZss||'';$('projectCode').value=settings.project||'church-42';$('settingsMessage').textContent=supabaseClient?'온라인 저장 연결됨': 'URL과 공개 키를 입력하면 기기 간 사진이 동기화됩니다.';$('settingsDialog').showModal() }
+function openSettings(){ 
+  $('supabaseUrl').value = settings.url || 'https://luflknyhvjrbwcuvtnxi.supabase.co/rest/v1/';
+  $('supabaseKey').value = settings.key || 'sb_publishable_Rx8VFmcjgOC3hGWhRAsKjQ_XTK3sZss';
+  $('projectCode').value = settings.project || 'church-42';
+  $('settingsMessage').textContent = supabaseClient ? '온라인 저장 연결됨' : 'URL과 공개 키를 입력하면 기기 간 사진이 동기화됩니다.';
+  $('settingsDialog').showModal();
+}
 
 async function connectSupabase(){
   const url=$('supabaseUrl').value.trim().replace(/\/$/,'');const key=$('supabaseKey').value.trim();const project=$('projectCode').value.trim()||'church-42';
