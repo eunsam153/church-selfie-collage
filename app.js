@@ -157,13 +157,42 @@ async function savePhoto(){
 }
 async function loadLocalPhotos(){const entries=await localGetPhotos();for(const [key,value] of entries){const i=Number(String(key).replace(LOCAL_PREFIX,''))-1;if(Number.isInteger(i)&&i>=0&&i<TOTAL&&value)photos.set(i,value)}renderGrid();drawArtwork($('artworkCanvas'))}
 async function startCamera(){
-  if(!navigator.mediaDevices?.getUserMedia){showToast('이 브라우저에서는 카메라를 사용할 수 없어요. HTTPS로 접속해 주세요.');return}
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('이 브라우저에서는 카메라를 지원하지 않습니다. Safari 앱으로 접속해 주세요.');
+    return;
+  }
   stopCamera();
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facingMode},width:{ideal:1280},height:{ideal:1600}},audio:false});
-    $('camera').srcObject=stream;$('camera').classList.remove('hidden');$('cameraPlaceholder').classList.add('hidden');
-    $('takePhotoBtn').disabled=false;$('switchCameraBtn').disabled=false;$('cameraMessage').textContent='빨간 선의 각도와 길이에 맞춰 포즈를 잡아 주세요.';
-  }catch(e){showToast('카메라를 시작하지 못했어요. 권한과 HTTPS 연결을 확인해 주세요.');$('cameraMessage').textContent=e.message}
+  try {
+    // 아이폰 호환성을 위해 제약 조건을 유연하게 설정
+    const constraints = {
+      video: { 
+        facingMode: { ideal: facingMode },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    };
+    
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = $('camera');
+    video.srcObject = stream;
+    
+    // 아이폰 Safari 필수 재생 속성 부여
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('autoplay', 'true');
+    video.muted = true;
+    await video.play().catch(() => {});
+
+    video.classList.remove('hidden');
+    $('cameraPlaceholder').classList.add('hidden');
+    $('takePhotoBtn').disabled = false;
+    $('switchCameraBtn').disabled = false;
+    $('cameraMessage').textContent = '빨간 선의 각도와 길이에 맞춰 포즈를 잡아 주세요.';
+  } catch(e) {
+    console.error(e);
+    showToast('카메라를 시작할 수 없어요. 권한을 확인해 주세요.');
+    $('cameraMessage').textContent = '오류: ' + (e.message || '카메라 접근 거부됨');
+  }
 }
 function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
 function takePhoto(){
