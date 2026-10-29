@@ -227,20 +227,22 @@ function takePhoto(){
   const video = $('camera');
   if(!stream || !video.videoWidth) return;
 
-  // 정방형으로 크롭하되, 추가적인 좌우반전 왜곡 없이 화면에 보이는 그대로 저장합니다.
   const side = Math.min(video.videoWidth, video.videoHeight);
   const sx = Math.floor((video.videoWidth - side) / 2);
   const sy = Math.floor((video.videoHeight - side) / 2);
   
   const c = $('captureCanvas');
-  c.width = side;
-  c.height = side;
-  const ctx = c.getContext('2d');
+  // 42장 저장 용량을 위해 해상도를 600px 정방형으로 최적화 (용량 대폭 감소)
+  const targetSize = 600;
+  c.width = targetSize;
+  c.height = targetSize;
   
-  // 가이드선과 100% 일치하도록 보정 없이 원본 프레임 그대로 복사합니다.
-  ctx.drawImage(video, sx, sy, side, side, 0, 0, side, side);
+  const ctx = c.getContext('2d');
+  // 원본 프레임을 600x600 크기로 축소하여 생성
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, targetSize, targetSize);
 
-  pendingPhoto = c.toDataURL('image/jpeg', .92);
+  // 압축률을 0.75로 설정
+  pendingPhoto = c.toDataURL('image/jpeg', .75);
 
   $('camera').classList.add('hidden');
   c.classList.remove('hidden');
