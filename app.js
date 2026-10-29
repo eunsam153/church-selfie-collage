@@ -227,27 +227,28 @@ function takePhoto(){
   const video = $('camera');
   if(!stream || !video.videoWidth) return;
 
-  // 임시 캔버스 생성
-  const c = document.createElement('canvas');
-  c.width = video.videoWidth;
-  c.height = video.videoHeight;
+  // 정방형으로 크롭하되, 추가적인 좌우반전 왜곡 없이 화면에 보이는 그대로 저장합니다.
+  const side = Math.min(video.videoWidth, video.videoHeight);
+  const sx = Math.floor((video.videoWidth - side) / 2);
+  const sy = Math.floor((video.videoHeight - side) / 2);
+  
+  const c = $('captureCanvas');
+  c.width = side;
+  c.height = side;
   const ctx = c.getContext('2d');
+  
+  // 가이드선과 100% 일치하도록 보정 없이 원본 프레임 그대로 복사합니다.
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, side, side);
 
-  // 좌우반전 처리 (셀카 거울 모드 적용)
-  ctx.save();
-  ctx.translate(c.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, 0, 0, c.width, c.height);
-  ctx.restore();
+  pendingPhoto = c.toDataURL('image/jpeg', .92);
 
-  // 좌우반전된 상태의 이미지 데이터를 pendingPhoto에 저장
-  pendingPhoto = c.toDataURL('image/jpeg', .88);
-
-  $('cameraPlaceholder').classList.add('hidden');
+  $('camera').classList.add('hidden');
+  c.classList.remove('hidden');
+  $('cameraGuideCanvas').classList.add('hidden');
   $('savePhotoBtn').disabled = false;
   $('retakeBtn').classList.remove('hidden');
-  $('cameraMessage').textContent = '좌우반전이 적용된 사진입니다. 마음에 들면 저장해 주세요.';
-  showToast('사진을 좌우반전하여 촬영했어요!');
+  $('cameraMessage').textContent = '정방형으로 잘린 사진을 확인하세요. 가이드는 저장 사진에 들어가지 않아요.';
+  showToast('정방형 셀카를 촬영했어요. 확인 후 저장해 주세요.');
 }
 
 function drawCover(ctx,img,x,y,w,h){
