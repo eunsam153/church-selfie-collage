@@ -48,8 +48,11 @@ function renderGrid(){
   $('progressBar').style.width=(count/TOTAL*100)+'%';
   $('progressHint').textContent=count===TOTAL?'모든 사진이 모였어요! 작품을 저장해 보세요.':count===0?'첫 번째 칸부터 시작해 보세요.':`완성까지 ${TOTAL-count}장 남았어요.`;
   $('artworkCount').textContent=`${count} / ${TOTAL} photos`;
-  $('captureStatus').textContent=photos.has(activeIndex)?'촬영 완료':'촬영 전';
-  $('captureStatus').classList.toggle('done',photos.has(activeIndex));
+  const isSaved = photos.has(activeIndex);
+  $('captureStatus').textContent=isSaved?'촬영 완료':'촬영 전';
+  $('captureStatus').classList.toggle('done',isSaved);
+  $('replaceSavedBtn').classList.toggle('hidden',!isSaved);
+  $('savePhotoBtn').textContent=isSaved?'사진 교체 저장':'이 번호에 저장';
 }
 function drawCurrentGuide(){
   const crop=getCellCrop(activeIndex);
@@ -72,14 +75,13 @@ function selectSegment(i){
   $('captureCanvas').classList.add('hidden');
   if(stream)$('camera').classList.remove('hidden');
   $('cameraGuideCanvas').classList.remove('hidden');
+  $('cameraPlaceholder').classList.toggle('hidden',!!stream);
   drawCurrentGuide();renderGrid();drawArtwork($('artworkCanvas'));
   $('captureSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function openSettings(){ 
-  $('supabaseUrl').value = settings.url || 'https://luflknyhvjrbwcuvtnxi.supabase.co';
-  $('supabaseKey').value = settings.key || 'sb_publishable_Rx8VFmcjgOC3hGWhRAsKjQ_XTK3sZss';
-  $('projectCode').value = settings.project || 'church-42';
-  $('settingsMessage').textContent = supabaseClient ? '온라인 저장 연결됨' : 'URL과 공개 키를 입력하면 기기 간 사진이 동기화됩니다.';
+function openSettings(){
+  $('supabaseUrl').value=settings.url||'';$('supabaseKey').value=settings.key||'';$('projectCode').value=settings.project||'church-42';
+  $('settingsMessage').textContent=supabaseClient?'온라인 저장 연결됨':'URL과 공개 키를 입력하면 여러 기기에서 사진이 동기화됩니다.';
   $('settingsDialog').showModal();
 }
 async function connectSupabase(){
@@ -151,40 +153,68 @@ function loadLocalPhotos(){
   for(let i=0;i<TOTAL;i++){const p=localStorage.getItem(localPhotoKey(i));if(p)photos.set(i,p)}
 }
 async function startCamera(){
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showToast('이 브라우저에서는 카메라를 사용할 수 없어요. Safari 앱 및 HTTPS로 접속해 주세요.');
+  const video=$('camera');
+  if(!window.isSecureContext){
+    $('cameraMessage').textContent='카메라는 HTTPS 주소에서만 실행할 수 있어요. 배포된 https:// 링크를 Safari 주소창에 직접 열어 주세요.';
+    showToast('HTTPS 주소로 접속해야 카메라를 사용할 수 있어요.');
+    return;
+  }
+  if(!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia!=='function'){
+    $('cameraMessage').textContent='이 브라우저에서 카메라 API를 사용할 수 없어요. 링크를 인앱 브라우저가 아닌 iPhone Safari에서 직접 열어 주세요.';
+    showToast('Safari에서 링크를 직접 열어 주세요.');
     return;
   }
   stopCamera();
-  try {
-    const constraints = {
-      video: { 
-        facingMode: { ideal: facingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    };
-    
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-    const video = $('camera');
-    video.srcObject = stream;
-    
-    // 아이폰 Safari 필수 속성 설정
-    video.setAttribute('playsinline', 'true');
-    video.setAttribute('autoplay', 'true');
-    video.muted = true;
-    await video.play().catch(() => {});
-
+  $('startCameraBtn').disabled=true;
+  $('cameraMessage').textContent='카메라에 연결 중…';
+  try{
+    let constraints={audio:false,video:{facingMode:facingMode,width:{ideal:1280},height:{ideal:1280}}};
+    try{
+      stream=await navigator.mediaDevices.getUserMedia(constraints);
+    }catch(firstError){
+      // Older iOS Safari versions may reject advanced constraints; retry simply.
+      stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
+    }
+    video.setAttribute('playsinline','');
+    video.setAttribute('webkit-playsinline','');
+    video.autoplay=true;
+    video.muted=true;
+    video.srcObject=stream;
     video.classList.remove('hidden');
+    $('captureCanvas').classList.add('hidden');
     $('cameraPlaceholder').classList.add('hidden');
-    $('takePhotoBtn').disabled = false;
-    $('switchCameraBtn').disabled = false;
-    $('cameraMessage').textContent = '빨간 선의 각도와 길이에 맞춰 포즈를 잡아 주세요.';
-  } catch(e) {
-    console.error(e);
-    showToast('카메라를 시작하지 못했어요. 권한을 확인해 주세요.');
-    $('cameraMessage').textContent = '오류: ' + (e.message || '카메라 접근 거부됨');
+    $('cameraGuideCanvas').classList.remove('hidden');
+
+    // iOS Safari often needs an explicit play() after getUserMedia.
+    await new Promise((resolve,reject)=>{
+      if(video.readyState>=2 && video.videoWidth>0){resolve();return}
+      const onReady=()=>{cleanup();resolve()};
+      const onError=()=>{cleanup();reject(new Error('카메라 영상 스트림을 표시할 수 없어요.'))};
+      const cleanup=()=>{video.removeEventListener('loadedmetadata',onReady);video.removeEventListener('canplay',onReady);video.removeEventListener('error',onError)};
+      video.addEventListener('loadedmetadata',onReady,{once:true});
+      video.addEventListener('canplay',onReady,{once:true});
+      video.addEventListener('error',onError,{once:true});
+      setTimeout(()=>{if(video.videoWidth>0){cleanup();resolve()}},2500);
+    });
+    try{await video.play()}catch(playError){
+      // Retry play from this click-triggered flow; muted inline video is allowed by iOS.
+      video.muted=true;
+      await video.play();
+    }
+    $('takePhotoBtn').disabled=false;
+    $('switchCameraBtn').disabled=false;
+    $('cameraMessage').textContent='정사각형 프레임 안에서 포즈를 잡아 주세요. 빨간 가이드는 저장 사진에 포함되지 않아요.';
+    showToast('카메라가 준비됐어요.');
+  }catch(e){
+    stopCamera();
+    video.srcObject=null;
+    video.classList.add('hidden');
+    $('cameraPlaceholder').classList.remove('hidden');
+    $('cameraMessage').textContent=`카메라를 시작하지 못했어요: ${e.message||e.name||'알 수 없는 오류'}. iPhone 설정 > Safari > 카메라 권한과 HTTPS 주소를 확인해 주세요.`;
+    showToast('카메라 시작 실패: Safari 권한과 HTTPS를 확인해 주세요.');
+    console.error('Camera startup failed:',e);
+  }finally{
+    $('startCameraBtn').disabled=false;
   }
 }
 function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
@@ -224,22 +254,14 @@ async function drawArtwork(canvas){
       catch(e){ctx.fillStyle='#f1f1f1';ctx.fillRect(x,y,cell,cell)}
     }else{
       ctx.fillStyle='#f7f7f7';ctx.fillRect(x,y,cell,cell);
-      // Red guide is only a guide; the final image should be made by the photographed gestures.
-      if(templateImage){
-        const crop=getCellCrop(i);
-        ctx.save();ctx.globalAlpha=.45;
-        ctx.drawImage(templateImage,crop.x,crop.y,crop.w,crop.h,x,y,cell,cell);
-        ctx.restore();
-      }
+      // Empty slots remain plain placeholders. Guide lines are for capture only
+      // and must never appear in the exported final artwork.
       ctx.fillStyle='#777';ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(fmt(i),x+cell/2,y+cell/2);
     }
   }
-  // Thin black grid lines touch each other: no white gaps between photographs.
-  ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();
-  for(let c=0;c<=COLS;c++){const x=gridX+c*cell;ctx.moveTo(x,gridY);ctx.lineTo(x,gridY+ROWS*cell)}
-  for(let r=0;r<=ROWS;r++){const y=gridY+r*cell;ctx.moveTo(gridX,y);ctx.lineTo(gridX+COLS*cell,y)}
-  ctx.stroke();
+  // No grid strokes in the exported artwork: the grid is only a capture guide.
+  // Photo cells are drawn edge-to-edge with zero gutters.
   ctx.fillStyle='#444';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.font='20px sans-serif';
   ctx.fillText("All of you together are Christ's body, and each of you is a part of it.",canvas.width/2,1190);
   ctx.fillStyle='#888';ctx.font='20px sans-serif';
@@ -260,28 +282,36 @@ async function openPreview(){
 }
 function updateSetupNotice(){if(!settings.url||!settings.key)$('setupNotice').classList.remove('hidden');else $('setupNotice').classList.add('hidden')}
 
-$('settingsBtn').addEventListener('click', openSettings);
-$('openSettingsNotice').addEventListener('click', openSettings);
-$('saveSettingsBtn').addEventListener('click', connectSupabase);
-$('clearSettingsBtn').addEventListener('click', ()=>{settings={};saveSettingsLocal();supabaseClient=null;$('settingsMessage').textContent='연결 정보가 이 브라우저에서 삭제됐어요.';showToast('온라인 연결 설정을 지웠어요.')});
-
-// ▼ 이 부분이 아이폰 터치(클릭)를 강제로 인식하게 해주는 수정된 코드입니다!
-const startBtn = $('startCameraBtn');
-startBtn.addEventListener('click', startCamera);
-startBtn.addEventListener('touchend', (e) => { e.preventDefault(); startCamera(); });
-
+$('settingsBtn').addEventListener('click',openSettings);
+$('openSettingsNotice').addEventListener('click',openSettings);
+$('saveSettingsBtn').addEventListener('click',connectSupabase);
+$('clearSettingsBtn').addEventListener('click',()=>{settings={};saveSettingsLocal();supabaseClient=null;$('settingsMessage').textContent='연결 정보가 이 브라우저에서 삭제됐어요.';showToast('온라인 연결 설정을 지웠어요.')});
+$('startCameraBtn').addEventListener('click',()=>{
+  $('cameraMessage').textContent='버튼이 눌렸어요. 카메라 연결을 시도하고 있어요…';
+  $('startCameraBtn').disabled=true;
+  Promise.resolve().then(startCamera).catch(e=>{
+    console.error('Camera button handler failed:',e);
+    $('cameraMessage').textContent='카메라 실행 중 오류가 발생했어요: '+(e.message||String(e));
+    $('startCameraBtn').disabled=false;
+    showToast('카메라 실행 오류가 발생했어요.');
+  });
+});
 $('switchCameraBtn').addEventListener('click',()=>{facingMode=facingMode==='user'?'environment':'user';startCamera()});
 $('takePhotoBtn').addEventListener('click',takePhoto);
-$('retakeBtn').addEventListener('click',()=>{pendingPhoto=null;$('savePhotoBtn').disabled=true;$('retakeBtn').classList.add('hidden');$('cameraMessage').textContent='다시 포즈를 잡고 촬영해 주세요.'});
-$('savePhotoBtn').addEventListener('click',savePhoto);
-$('downloadBtn').addEventListener('click',()=>downloadCanvas($('artworkCanvas'),'church-42-collage.png'));
-$('previewBtn').addEventListener('click',openPreview);
-$('closePreviewBtn').addEventListener('click',()=>$('previewDialog').close());
-$('previewDownloadBtn').addEventListener('click',()=>downloadCanvas($('previewCanvas'),'church-42-preview.png'));
-window.addEventListener('beforeunload',stopCamera);
-
-renderGrid();selectSegment(0);updateSetupNotice();drawArtwork($('artworkCanvas'));loadLocalPhotos();
-if(settings.url&&settings.key){$('supabaseUrl').value=settings.url;$('supabaseKey').value=settings.key;$('projectCode').value=settings.project||'church-42';connectSupabase().catch(console.error)}
+$('replaceSavedBtn').addEventListener('click',async()=>{
+  pendingPhoto=null;
+  $('savePhotoBtn').disabled=true;
+  $('retakeBtn').classList.add('hidden');
+  $('captureCanvas').classList.add('hidden');
+  $('cameraGuideCanvas').classList.remove('hidden');
+  if(stream){
+    $('camera').classList.remove('hidden');
+    $('cameraPlaceholder').classList.add('hidden');
+  }else{
+    await startCamera();
+  }
+  $('cameraMessage').textContent='새 사진을 촬영한 뒤 “사진 교체 저장”을 누르면 기존 사진이 교체됩니다.';
+});
 
 $('retakeBtn').addEventListener('click',()=>{
   pendingPhoto=null;$('savePhotoBtn').disabled=true;$('retakeBtn').classList.add('hidden');
