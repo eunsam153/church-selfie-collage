@@ -218,21 +218,34 @@ async function startCamera(){
   }
 }
 function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+
 function takePhoto(){
-  const video=$('camera');if(!stream||!video.videoWidth)return;
-  // Center-crop the raw camera frame to a square, then mirror it like the live selfie preview.
-  const side=Math.min(video.videoWidth,video.videoHeight);
-  const sx=Math.floor((video.videoWidth-side)/2),sy=Math.floor((video.videoHeight-side)/2);
-  const c=$('captureCanvas');c.width=side;c.height=side;
-  const ctx=c.getContext('2d');ctx.save();ctx.translate(side,0);ctx.scale(-1,1);
-  ctx.drawImage(video,sx,sy,side,side,0,0,side,side);ctx.restore();
-  pendingPhoto=c.toDataURL('image/jpeg',.92);
-  $('camera').classList.add('hidden');c.classList.remove('hidden');
-  $('cameraGuideCanvas').classList.add('hidden');
-  $('savePhotoBtn').disabled=false;$('retakeBtn').classList.remove('hidden');
-  $('cameraMessage').textContent='정방형으로 잘린 사진을 확인하세요. 가이드는 저장 사진에 들어가지 않아요.';
-  showToast('정방형 셀카를 촬영했어요. 확인 후 저장해 주세요.');
+  const video = $('camera');
+  if(!stream || !video.videoWidth) return;
+
+  // 임시 캔버스 생성
+  const c = document.createElement('canvas');
+  c.width = video.videoWidth;
+  c.height = video.videoHeight;
+  const ctx = c.getContext('2d');
+
+  // 좌우반전 처리 (셀카 거울 모드 적용)
+  ctx.save();
+  ctx.translate(c.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, c.width, c.height);
+  ctx.restore();
+
+  // 좌우반전된 상태의 이미지 데이터를 pendingPhoto에 저장
+  pendingPhoto = c.toDataURL('image/jpeg', .88);
+
+  $('cameraPlaceholder').classList.add('hidden');
+  $('savePhotoBtn').disabled = false;
+  $('retakeBtn').classList.remove('hidden');
+  $('cameraMessage').textContent = '좌우반전이 적용된 사진입니다. 마음에 들면 저장해 주세요.';
+  showToast('사진을 좌우반전하여 촬영했어요!');
 }
+
 function drawCover(ctx,img,x,y,w,h){
   const s=Math.max(w/img.width,h/img.height),sw=w/s,sh=h/s;
   const sx=(img.width-sw)/2,sy=(img.height-sh)/2;
