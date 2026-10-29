@@ -76,7 +76,7 @@ function selectSegment(i){
   $('captureSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function openSettings(){ 
-  $('supabaseUrl').value = settings.url || 'https://luflknyhvjrbwcuvtnxi.supabase.co/rest/v1/';
+  $('supabaseUrl').value = settings.url || 'https://luflknyhvjrbwcuvtnxi.supabase.co';
   $('supabaseKey').value = settings.key || 'sb_publishable_Rx8VFmcjgOC3hGWhRAsKjQ_XTK3sZss';
   $('projectCode').value = settings.project || 'church-42';
   $('settingsMessage').textContent = supabaseClient ? '온라인 저장 연결됨' : 'URL과 공개 키를 입력하면 기기 간 사진이 동기화됩니다.';
