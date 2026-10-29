@@ -260,13 +260,29 @@ async function openPreview(){
 }
 function updateSetupNotice(){if(!settings.url||!settings.key)$('setupNotice').classList.remove('hidden');else $('setupNotice').classList.add('hidden')}
 
-$('settingsBtn').addEventListener('click',openSettings);
-$('openSettingsNotice').addEventListener('click',openSettings);
-$('saveSettingsBtn').addEventListener('click',connectSupabase);
-$('clearSettingsBtn').addEventListener('click',()=>{settings={};saveSettingsLocal();supabaseClient=null;$('settingsMessage').textContent='연결 정보가 이 브라우저에서 삭제됐어요.';showToast('온라인 연결 설정을 지웠어요.')});
-$('startCameraBtn').addEventListener('click',startCamera);
+$('settingsBtn').addEventListener('click', openSettings);
+$('openSettingsNotice').addEventListener('click', openSettings);
+$('saveSettingsBtn').addEventListener('click', connectSupabase);
+$('clearSettingsBtn').addEventListener('click', ()=>{settings={};saveSettingsLocal();supabaseClient=null;$('settingsMessage').textContent='연결 정보가 이 브라우저에서 삭제됐어요.';showToast('온라인 연결 설정을 지웠어요.')});
+
+// ▼ 이 부분이 아이폰 터치(클릭)를 강제로 인식하게 해주는 수정된 코드입니다!
+const startBtn = $('startCameraBtn');
+startBtn.addEventListener('click', startCamera);
+startBtn.addEventListener('touchend', (e) => { e.preventDefault(); startCamera(); });
+
 $('switchCameraBtn').addEventListener('click',()=>{facingMode=facingMode==='user'?'environment':'user';startCamera()});
 $('takePhotoBtn').addEventListener('click',takePhoto);
+$('retakeBtn').addEventListener('click',()=>{pendingPhoto=null;$('savePhotoBtn').disabled=true;$('retakeBtn').classList.add('hidden');$('cameraMessage').textContent='다시 포즈를 잡고 촬영해 주세요.'});
+$('savePhotoBtn').addEventListener('click',savePhoto);
+$('downloadBtn').addEventListener('click',()=>downloadCanvas($('artworkCanvas'),'church-42-collage.png'));
+$('previewBtn').addEventListener('click',openPreview);
+$('closePreviewBtn').addEventListener('click',()=>$('previewDialog').close());
+$('previewDownloadBtn').addEventListener('click',()=>downloadCanvas($('previewCanvas'),'church-42-preview.png'));
+window.addEventListener('beforeunload',stopCamera);
+
+renderGrid();selectSegment(0);updateSetupNotice();drawArtwork($('artworkCanvas'));loadLocalPhotos();
+if(settings.url&&settings.key){$('supabaseUrl').value=settings.url;$('supabaseKey').value=settings.key;$('projectCode').value=settings.project||'church-42';connectSupabase().catch(console.error)}
+
 $('retakeBtn').addEventListener('click',()=>{
   pendingPhoto=null;$('savePhotoBtn').disabled=true;$('retakeBtn').classList.add('hidden');
   $('captureCanvas').classList.add('hidden');
