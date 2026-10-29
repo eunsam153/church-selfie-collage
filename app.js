@@ -151,16 +151,41 @@ function loadLocalPhotos(){
   for(let i=0;i<TOTAL;i++){const p=localStorage.getItem(localPhotoKey(i));if(p)photos.set(i,p)}
 }
 async function startCamera(){
-  if(!navigator.mediaDevices?.getUserMedia){showToast('카메라를 사용할 수 없어요. HTTPS로 접속해 주세요.');return}
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('이 브라우저에서는 카메라를 사용할 수 없어요. Safari 앱 및 HTTPS로 접속해 주세요.');
+    return;
+  }
   stopCamera();
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facingMode},width:{ideal:1280},height:{ideal:1280}},audio:false});
-    $('camera').srcObject=stream;
-    $('camera').classList.remove('hidden');$('captureCanvas').classList.add('hidden');
-    $('cameraPlaceholder').classList.add('hidden');$('cameraGuideCanvas').classList.remove('hidden');
-    $('takePhotoBtn').disabled=false;$('switchCameraBtn').disabled=false;
-    $('cameraMessage').textContent='정사각형 프레임 안에서 포즈를 잡아 주세요. 빨간 가이드는 최종 사진에 포함되지 않아요.';
-  }catch(e){showToast('카메라를 시작하지 못했어요. 권한과 HTTPS 연결을 확인해 주세요.');$('cameraMessage').textContent=e.message}
+  try {
+    const constraints = {
+      video: { 
+        facingMode: { ideal: facingMode },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    };
+    
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = $('camera');
+    video.srcObject = stream;
+    
+    // 아이폰 Safari 필수 속성 설정
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('autoplay', 'true');
+    video.muted = true;
+    await video.play().catch(() => {});
+
+    video.classList.remove('hidden');
+    $('cameraPlaceholder').classList.add('hidden');
+    $('takePhotoBtn').disabled = false;
+    $('switchCameraBtn').disabled = false;
+    $('cameraMessage').textContent = '빨간 선의 각도와 길이에 맞춰 포즈를 잡아 주세요.';
+  } catch(e) {
+    console.error(e);
+    showToast('카메라를 시작하지 못했어요. 권한을 확인해 주세요.');
+    $('cameraMessage').textContent = '오류: ' + (e.message || '카메라 접근 거부됨');
+  }
 }
 function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
 function takePhoto(){
